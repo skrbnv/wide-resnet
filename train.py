@@ -1,38 +1,40 @@
-import torchvision
+from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
 import torch
 import torch.nn as nn
 from tqdm import tqdm
 from libs.wrn import Wide_ResNet
-from libs.functions import test
+from libs.functions import test, MixupRun
 from libs.shedulers import StepDownScheduler
 import wandb
 import numpy as np
 import random
-from timm.data.mixup import Mixup
+
 
 config = {
-    'seed': None, #None or inf
+    'seed': None, #None or int
     'initial_lr': 0.1,
     'depth': 28,
     'widen_factor': 10,
-    'dropout': 0,
+    'dropout': 0.3,
     'wandb': True,
-    'resume': False,
+    'resume': True,
     'project': 'cifar10-construction',
-    'wandb_id': '2bzf9mlp',
-    'epoch': 0,
-    'max_epochs': 200, 
-    'model_file': './checkpoints/checkpoint.dict',
+    'wandb_id': '1s2y72tl',
+    'epoch': 81,
+    'max_epochs': 300, 
+    'model_file': './checkpoints/best.dict',
     'std': (0.4914, 0.4822, 0.4465),
     'mean': (0.2023, 0.1994, 0.2010),
-    'classes': 10
-}
-
-
-
-
-
+    'classes': 10,
+    'mixup_alpha': 0.8,
+    'cutmix_alpha': 1.,
+    'cutmix_minmax': None,
+    'mixup_prob': 0.5,
+    'switch_prob': 0.5,
+    'mixup_mode': 'batch',
+    'label_smoothing': 0,
+    }
 
 seed = random.randint(1, 5000) if config['seed'] is None else config['seed']
 print(f'Using seed: {seed}')
@@ -50,30 +52,16 @@ if config['wandb']:
                           project=config['project'],
                           resume="must")
 
-#model = Model().float().cuda()
-model = Wide_ResNet(config['depth'], config['widen_factor'], config['dropout'], config['classes']).float().cuda() 
+model = Wide_ResNet(config['depth'], config['widen_factor'], config['dropout'], config['classes']).float().cuda()
 if config['resume']:
     model.load_state_dict(torch.load(config['model_file']))
 if config['wandb']:
     wandb.watch(model)
 
-
-'''
-mixup_args = {
-    'mixup_alpha': 0.8,
-    'cutmix_alpha': 1.,
-    'cutmix_minmax': None,
-    'prob': 0.5,
-    'switch_prob': 0.5,
-    'mode': 'batch',
-    'label_smoothing': 0,
-    'num_classes': 10}
-mixup_fn = Mixup(**mixup_args)
-'''
-
 transform_train = transforms.Compose([
     transforms.RandomCrop(32, padding=4),
     transforms.RandomHorizontalFlip(),
+    transforms.RandAugment(num_ops=3, magnitude=9),
     transforms.ToTensor(),
     transforms.Normalize(config['std'], config['mean']),
     transforms.RandomErasing(),
@@ -84,9 +72,9 @@ transform_test = transforms.Compose([
     transforms.Normalize(config['std'], config['mean']),
 ])
 
-trainset = torchvision.datasets.CIFAR10(root='./datasets', train=True, download=False, transform=transform_train)
-trainset_test = torch.utils.data.Subset(torchvision.datasets.CIFAR10(root='./datasets', train=True, download=False, transform=transform_test), random.sample(range(1, 50000), 10000))
-evalset = torchvision.datasets.CIFAR10(root='./datasets', train=False, download=False, transform=transform_test)
+trainset = CIFAR10(root='./datasets', train=True, download=False, transform=transform_train)
+trainset_test = torch.utils.data.Subset(CIFAR10(root='./datasets', train=True, download=False, transform=transform_test), random.sample(range(1, 50000), 10000))
+evalset = CIFAR10(root='./datasets', train=False, download=False, transform=transform_test)
 
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=0)
 train_test_loader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=False, num_workers=0)
@@ -97,11 +85,12 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), config['initial_lr'], momentum=0.9, weight_decay=5e-4, nesterov=True)
 scheduler = StepDownScheduler(optimizer, config['epoch'])
 ev_acc_max = 0
+mixup_fn = MixupRun(config)
 for epoch in range(config['epoch'], config['max_epochs']):
     epoch_loss = []
     for images, labels in tqdm(train_loader):
         optimizer.zero_grad()
-        #images, labels = mixup_fn(images, labels)
+        images, labels = mixup_fn(images.cuda(), labels.cuda())
         preds, _ = model(images.cuda())
         loss = criterion(preds, labels.cuda())
         loss.backward()

@@ -16,7 +16,7 @@ random.seed(1337)
 
 classes = ['airplane', 'automobile', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck']
 
-model_file = './checkpoints/wrn28x10_own_9577.dict'
+model_file = './checkpoints/wrn28x10_own_d0.3_re_ra_97.11.dict'
 model = Wide_ResNet(28, 10, 0.3, 10).float().cuda() 
 model.load_state_dict(torch.load(model_file))
 

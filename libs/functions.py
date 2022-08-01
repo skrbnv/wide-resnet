@@ -1,11 +1,9 @@
-import torchvision
 import torch
 from tqdm import tqdm
 from timm.data.mixup import Mixup
-import random
 import matplotlib.pyplot as plt
-import numpy as np
 import math
+
 
 def test(model, dataloader):
     c, t = 0, 0
@@ -21,7 +19,7 @@ def test(model, dataloader):
 
 
 def norm(data):
-    data = data-torch.min(data) if torch.min(data) < 0 else data
+    data = data-torch.min(data)
     data = data/torch.max(data) if torch.max(data) > 1 else data
     return data
 
@@ -40,3 +38,20 @@ def preview(images=[], labels=[],overlays=None):
             ax[target].imshow(overlays[i], alpha=0.5)
     plt.show()
     plt.close()
+
+class MixupRun():
+    def __init__(self, config) -> None:
+        mixup_args = {
+            'mixup_alpha': config['mixup_alpha'],
+            'cutmix_alpha': config['cutmix_alpha'],
+            'cutmix_minmax': config['cutmix_minmax'],
+            'prob': config['mixup_prob'],
+            'switch_prob': config['switch_prob'],
+            'mode': config['mixup_mode'],
+            'label_smoothing': config['label_smoothing'],
+            'num_classes': config['classes']
+            }
+        self.mixup_fn = Mixup(**mixup_args)
+    
+    def __call__(self, inputs, labels):
+        return self.mixup_fn(inputs, labels)

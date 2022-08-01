@@ -25,7 +25,7 @@ class StepDownScheduler():
     def __init__(self, optimizer, initial_epoch=0) -> None:
         self.multiplier = 0.2
         self.optimizer = optimizer
-        self.triggers = [60, 120, 160]
+        self.triggers = [60, 120, 160, 200, 240, 280]
         self.counter = 0
         for self.counter in range(initial_epoch):
             self.step()

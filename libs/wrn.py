@@ -6,23 +6,27 @@ def conv3x3(in_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=Fals
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1):
         super(wide_basic, self).__init__()
-        self.conv1 = conv3x3(in_planes=in_planes, out_planes=planes, stride=stride)
-        self.conv2 = conv3x3(in_planes=planes, out_planes=planes, stride=1)
         self.bn1 = nn.BatchNorm2d(in_planes)
+        self.conv1 = conv3x3(in_planes=in_planes, out_planes=planes, stride=stride)
+        self.relu = nn.ReLU()
         self.bn2 = nn.BatchNorm2d(planes)
         self.dropout = nn.Dropout(p=dropout_rate) if dropout_rate > 0 else None
-        self.relu = nn.ReLU()
-        #if in_planes == planes:
+        self.conv2 = conv3x3(in_planes=planes, out_planes=planes, stride=1)
         self.shortcut = nn.Identity() if in_planes == planes else nn.Conv2d(in_planes, planes, kernel_size=1, stride=stride, bias=False)
-        #if stride != 1 or in_planes != planes:
 
     def forward(self, x):
-        out = self.conv1(self.relu(self.bn1(x)))
+        c = self.bn1(x)
+        c = self.relu(c)
+        c = self.conv1(c)
+
+        c = self.bn2(c)
+        c = self.relu(c)
         if self.dropout is not None:
-            out = self.dropout(out)
-        out = self.conv2(self.relu(self.bn2(out)))
-        out += self.shortcut(x)
-        return out
+            c = self.dropout(c)
+        c = self.conv2(c)
+
+        c += self.shortcut(x)
+        return c
 
 class Wide_ResNet(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
