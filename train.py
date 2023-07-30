@@ -5,25 +5,25 @@ import torch.nn as nn
 from tqdm import tqdm
 from libs.wrn import Wide_ResNet
 from libs.functions import test, MixupRun
-from libs.shedulers import StepDownScheduler
+# from libs.shedulers import StepDownScheduler
 import wandb
 import numpy as np
 import random
 
 
 config = {
-    'seed': None, #None or int
+    'seed': None,  # None or int
     'initial_lr': 0.1,
     'depth': 28,
     'widen_factor': 10,
     'dropout': 0.3,
-    'wandb': True,
-    'resume': True,
-    'project': 'cifar10-construction',
-    'wandb_id': '1s2y72tl',
-    'epoch': 81,
-    'max_epochs': 300, 
-    'model_file': './checkpoints/best.dict',
+    'wandb': False,
+    'resume': False,
+    'project': 'cifar-10-wrn',
+    'wandb_id': '',
+    'epoch': 0,
+    'max_epochs': 300,
+    'model_file': './cpt.dict',
     'std': (0.4914, 0.4822, 0.4465),
     'mean': (0.2023, 0.1994, 0.2010),
     'classes': 10,
@@ -72,9 +72,11 @@ transform_test = transforms.Compose([
     transforms.Normalize(config['std'], config['mean']),
 ])
 
-trainset = CIFAR10(root='./datasets', train=True, download=False, transform=transform_train)
-trainset_test = torch.utils.data.Subset(CIFAR10(root='./datasets', train=True, download=False, transform=transform_test), random.sample(range(1, 50000), 10000))
-evalset = CIFAR10(root='./datasets', train=False, download=False, transform=transform_test)
+trainset = CIFAR10(root='./datasets/CIFAR10', train=True, download=True, transform=transform_train)
+trainset_test = torch.utils.data.Subset(
+            CIFAR10(root='./datasets/CIFAR10', train=True, download=True, transform=transform_test),
+            random.sample(range(1, 50000), 10000))
+evalset = CIFAR10(root='./datasets/CIFAR10', train=False, download=True, transform=transform_test)
 
 train_loader = torch.utils.data.DataLoader(trainset, batch_size=128, shuffle=False, num_workers=0)
 train_test_loader = torch.utils.data.DataLoader(trainset, batch_size=64, shuffle=False, num_workers=0)
@@ -82,8 +84,8 @@ eval_loader = torch.utils.data.DataLoader(evalset, batch_size=64, shuffle=False,
 
 
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), config['initial_lr'], momentum=0.9, weight_decay=5e-4, nesterov=True)
-scheduler = StepDownScheduler(optimizer, config['epoch'])
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+# scheduler = StepDownScheduler(optimizer, config['epoch'])
 ev_acc_max = 0
 mixup_fn = MixupRun(config)
 for epoch in range(config['epoch'], config['max_epochs']):
@@ -97,14 +99,14 @@ for epoch in range(config['epoch'], config['max_epochs']):
         optimizer.step()
         epoch_loss.append(loss.item())
 
-    c_ev,t_ev = test(model, eval_loader)
-    c_tr,t_tr = test(model, train_test_loader)
+    c_ev, t_ev = test(model, eval_loader)
+    c_tr, t_tr = test(model, train_test_loader)
     ev_acc = c_ev*100/t_ev
     if ev_acc > ev_acc_max:
         ev_acc_max = ev_acc
-        torch.save(model.state_dict(), f'./checkpoints/best.dict')
-    scheduler.step()
-    #scheduler.step(c/t)
+        torch.save(model.state_dict(), './cpt_last.dict')
+    # scheduler.step()
+    # scheduler.step(c/t)
     lr = optimizer.param_groups[0]['lr']
     print(f'Epoch: {epoch}')
     print(f'    Learning rate: {lr:.4f}')

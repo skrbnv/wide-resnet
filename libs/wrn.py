@@ -1,7 +1,9 @@
 import torch.nn as nn
 
+
 def conv3x3(in_planes, out_planes, kernel_size=3, stride=1, padding=1, bias=False):
     return nn.Conv2d(in_planes, out_planes, kernel_size=kernel_size, stride=stride, padding=padding, bias=bias)
+
 
 class wide_basic(nn.Module):
     def __init__(self, in_planes, planes, dropout_rate, stride=1):
@@ -24,16 +26,16 @@ class wide_basic(nn.Module):
         if self.dropout is not None:
             c = self.dropout(c)
         c = self.conv2(c)
-
         c += self.shortcut(x)
         return c
+
 
 class Wide_ResNet(nn.Module):
     def __init__(self, depth, widen_factor, dropout_rate, num_classes):
         super(Wide_ResNet, self).__init__()
         self.in_planes = 16
 
-        assert ((depth-4)%6 ==0), 'Wide-resnet depth should be 6n+4'
+        assert ((depth-4) % 6 == 0), 'Wide-resnet depth should be 6n+4'
         n = (depth-4)/6
         k = widen_factor
         nStages = [16, 16*k, 32*k, 64*k]
